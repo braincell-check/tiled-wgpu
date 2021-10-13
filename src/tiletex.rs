@@ -28,7 +28,7 @@ pub struct TilesetTextureCache {
 impl TilesetTextureCache {
     /// Construct a new tileset texture from a tileset.
     pub fn new(
-        device: &mut Device,
+        device: &Device,
         tileset: &Tileset,
         texture: Texture,
         bind_group_layout: &BindGroupLayout,

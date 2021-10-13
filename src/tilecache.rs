@@ -1,9 +1,12 @@
 use std::path::Path;
 
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tiled::Map;
 use wgpu::{Device, Queue};
 
-use crate::{error::TileCacheError, tiletex::TilesetTextureCache};
+use crate::{
+    bindgroup::build_tileset_bind_group_layout, error::TileCacheError, tiletex::TilesetTextureCache,
+};
 
 /// An on-GPU cache for tiled tilesets. One of these should exist per map.
 #[derive(Debug)]
@@ -13,11 +16,10 @@ pub struct GpuTileCache {
 }
 
 impl GpuTileCache {
-
     // Create a new tile cache from a tiled map.
-    pub fn new<P: AsRef<Path>>(
-        device: &mut Device,
-        queue: &mut Queue,
+    pub fn new<P: AsRef<Path> + Send + Sync>(
+        device: &Device,
+        queue: &Queue,
         map: &Map,
         map_filepath: P,
     ) -> Result<Self, TileCacheError> {
@@ -25,7 +27,7 @@ impl GpuTileCache {
         Ok(Self {
             tilesets: map
                 .tilesets
-                .iter()
+                .par_iter()
                 .map(|tileset| {
                     // For now, we only support one imate per tileset
                     if tileset.images.len() > 1 {
@@ -89,12 +91,19 @@ impl GpuTileCache {
                         texture_extent,
                     );
 
-                    Ok(TilesetTextureCache::new(device, tileset, texture))
+                    // Build a bindgroup layout for the tileset
+                    let bindgroup_layout = build_tileset_bind_group_layout(device);
+
+                    Ok(TilesetTextureCache::new(
+                        device,
+                        tileset,
+                        texture,
+                        &bindgroup_layout,
+                    ))
                 })
                 .collect::<Result<Vec<TilesetTextureCache>, TileCacheError>>()?,
         })
     }
 
-    /// Get the tileset a specific tile belongs to
-        
+    // / Get the tileset a specific tile belongs to
 }
