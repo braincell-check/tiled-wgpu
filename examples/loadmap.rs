@@ -38,4 +38,7 @@ pub async fn main() {
 
     // Load the map into VRAM
     let map_tilecache = GpuTileCache::new(&mut device, &mut queue, &map, map_path).unwrap();
+
+    // Dump the map
+    info!("Map sent to GPU: {:#?}", map_tilecache);
 }

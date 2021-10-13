@@ -1,6 +1,5 @@
-use std::{any::Any, collections::HashMap, path::Path};
+use std::{collections::HashMap, path::Path};
 
-use image::GenericImageView;
 use tiled::Map;
 use wgpu::{Device, Queue, Texture};
 
