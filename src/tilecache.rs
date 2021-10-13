@@ -1,35 +1,40 @@
-use std::{collections::HashMap, path::Path};
+use std::path::Path;
 
 use tiled::Map;
-use wgpu::{Device, Queue, Texture};
+use wgpu::{Device, Queue};
 
-#[derive(Debug, Error)]
-pub enum TileCacheError {
-    #[error(transparent)]
-    ImageLoad(#[from] image::ImageError),
-}
+use crate::{error::TileCacheError, tiletex::TilesetTextureCache};
 
+/// An on-GPU cache for tiled tilesets. One of these should exist per map.
 #[derive(Debug)]
 pub struct GpuTileCache {
-    tileset_reference: HashMap<u32, Vec<Texture>>,
+    /// All tilesets
+    tilesets: Vec<TilesetTextureCache>,
 }
 
 impl GpuTileCache {
+
+    // Create a new tile cache from a tiled map.
     pub fn new<P: AsRef<Path>>(
         device: &mut Device,
         queue: &mut Queue,
         map: &Map,
         map_filepath: P,
     ) -> Result<Self, TileCacheError> {
-        // Allocate storage for all textures
-        let mut tileset_reference = HashMap::new();
-
         // Search for all tilesets used by the map
-        for tileset in &map.tilesets {
-            let textures = tileset
-                .images
+        Ok(Self {
+            tilesets: map
+                .tilesets
                 .iter()
-                .map(|image| {
+                .map(|tileset| {
+                    // For now, we only support one imate per tileset
+                    if tileset.images.len() > 1 {
+                        return Err(TileCacheError::TooManyImages);
+                    }
+
+                    // Process the first image
+                    let image = tileset.images.first().unwrap();
+
                     // Get the image path relative to the map file
                     let image_path = map_filepath
                         .as_ref()
@@ -54,7 +59,7 @@ impl GpuTileCache {
                         texture_extent
                     );
                     let texture = device.create_texture(&wgpu::TextureDescriptor {
-                        label: Some(&image.source),
+                        label: Some(&format!("tileset:{}", image.source)),
                         size: texture_extent,
                         mip_level_count: 1,
                         sample_count: 1,
@@ -83,16 +88,12 @@ impl GpuTileCache {
                         },
                         texture_extent,
                     );
-                    Ok(texture)
+
+                    Ok(TilesetTextureCache::new(device, tileset, texture))
                 })
-                .collect::<Vec<Result<Texture, TileCacheError>>>()
-                .into_iter()
-                .collect::<Result<Vec<Texture>, TileCacheError>>()?;
-
-            // Store the texture in the tileset reference
-            tileset_reference.insert(tileset.first_gid, textures);
-        }
-
-        Ok(Self { tileset_reference })
+                .collect::<Result<Vec<TilesetTextureCache>, TileCacheError>>()?,
+        })
     }
+
+    
 }

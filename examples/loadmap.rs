@@ -41,4 +41,6 @@ pub async fn main() {
 
     // Dump the map
     info!("Map sent to GPU: {:#?}", map_tilecache);
+
+    loop{}
 }
