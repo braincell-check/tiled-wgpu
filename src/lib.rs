@@ -72,3 +72,4 @@ extern crate log;
 pub mod error;
 pub mod tilecache;
 pub mod tiletex;
+pub mod bindgroup;
