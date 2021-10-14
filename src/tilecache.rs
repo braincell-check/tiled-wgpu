@@ -2,7 +2,7 @@ use std::path::Path;
 
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tiled::Map;
-use wgpu::{Device, Queue};
+use wgpu::{BindGroupLayout, Device, Queue};
 
 use crate::{
     bindgroup::build_tileset_bind_group_layout, error::TileCacheError, tiletex::TilesetTextureCache,
@@ -13,6 +13,8 @@ use crate::{
 pub struct GpuTileCache {
     /// All tilesets
     tilesets: Vec<TilesetTextureCache>,
+    /// The bindgroup layout used for rendering tiles
+    tileset_bind_group_layout: BindGroupLayout,
 }
 
 impl GpuTileCache {
@@ -23,6 +25,9 @@ impl GpuTileCache {
         map: &Map,
         map_filepath: P,
     ) -> Result<Self, TileCacheError> {
+        // Build a bindgroup layout for the map
+        let bindgroup_layout = build_tileset_bind_group_layout(device);
+
         // Search for all tilesets used by the map
         Ok(Self {
             tilesets: map
@@ -91,9 +96,6 @@ impl GpuTileCache {
                         texture_extent,
                     );
 
-                    // Build a bindgroup layout for the tileset
-                    let bindgroup_layout = build_tileset_bind_group_layout(device);
-
                     Ok(TilesetTextureCache::new(
                         device,
                         tileset,
@@ -102,7 +104,13 @@ impl GpuTileCache {
                     ))
                 })
                 .collect::<Result<Vec<TilesetTextureCache>, TileCacheError>>()?,
+            tileset_bind_group_layout: bindgroup_layout,
         })
+    }
+
+    /// Get the bindgroup layout used for rendering tiles
+    pub fn bind_group_layout(&self) -> &BindGroupLayout {
+        &self.tileset_bind_group_layout
     }
 
     // / Get the tileset a specific tile belongs to

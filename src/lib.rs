@@ -69,7 +69,8 @@ extern crate thiserror;
 #[macro_use]
 extern crate log;
 
+pub mod bindgroup;
 pub mod error;
+pub mod maprender;
 pub mod tilecache;
 pub mod tiletex;
-pub mod bindgroup;
