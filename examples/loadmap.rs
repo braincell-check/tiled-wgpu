@@ -1,7 +1,14 @@
 use std::path::Path;
 
-use log::info;
+use log::{error, info};
+use pixels::{Pixels, SurfaceTexture};
 use tiled_wgpu::tilecache::GpuTileCache;
+use winit::{
+    dpi::LogicalSize,
+    event::Event,
+    event_loop::{ControlFlow, EventLoop},
+    window::WindowBuilder,
+};
 
 #[tokio::main]
 pub async fn main() {
@@ -10,27 +17,28 @@ pub async fn main() {
         .filter_module("wgpu", log::LevelFilter::Warn)
         .init();
 
-    // Init a wgpu instance
-    let adapter = wgpu::Instance::new(wgpu::Backends::all())
-        .request_adapter(&wgpu::RequestAdapterOptions::default())
-        .await
-        .unwrap();
+    // Build the window loop and manager
+    let event_loop = EventLoop::new();
+    let window = {
+        let size = LogicalSize::new(1000.0, 600.0);
+        WindowBuilder::new()
+            .with_title("Tiled Map Load")
+            .with_inner_size(size)
+            .with_min_inner_size(size)
+            .build(&event_loop)
+            .unwrap()
+    };
 
-    // Dump some info about the GPU adapter
-    info!("GPU Adapter: {:?}", adapter.get_info());
+    // Set up Pixels FB
+    let mut pixels = {
+        let window_size = window.inner_size();
+        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
+        Pixels::new(1000, 600, surface_texture).unwrap()
+    };
 
     // Create the logical device and command queue
-    let (mut device, mut queue) = adapter
-        .request_device(
-            &wgpu::DeviceDescriptor {
-                label: None,
-                features: wgpu::Features::empty(),
-                limits: wgpu::Limits::downlevel_defaults(),
-            },
-            None,
-        )
-        .await
-        .expect("Failed to create device");
+    let mut device = pixels.device();
+    let mut queue = pixels.queue();
 
     // Load an example map using tiled
     let map_path = Path::new("./tiled/examples/desert.tmx");
@@ -42,5 +50,28 @@ pub async fn main() {
     // Dump the map
     info!("Map sent to GPU: {:#?}", map_tilecache);
 
-    loop{}
+    // Render loop
+    event_loop.run(move |event, _, control_flow| {
+        // Handle control events
+        match event {
+            Event::WindowEvent { window_id, event } => match event {
+                winit::event::WindowEvent::CloseRequested => {
+                    *control_flow = ControlFlow::Exit;
+                    return;
+                }
+                _ => {}
+            },
+            Event::RedrawRequested(_) => {
+                if pixels
+                    .render()
+                    .map_err(|e| error!("pixels.render() failed: {}", e))
+                    .is_err()
+                {
+                    *control_flow = ControlFlow::Exit;
+                    return;
+                }
+            }
+            _ => {}
+        };
+    });
 }
